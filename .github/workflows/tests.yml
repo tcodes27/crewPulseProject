@@ -59,3 +59,30 @@ jobs:
 
       - name: Run automated tests
         run: python -m pytest -v tests/
+
+      - name: Run data quality monitoring
+        run: python src/run_data_quality_checks.py
+
+
+      - name: Verify monitoring results
+        run: |
+          PGPASSWORD=postgres psql \
+            -h localhost \
+            -U postgres \
+            -d crewpulse_test \
+            -v ON_ERROR_STOP=1 \
+            -tAc "SELECT COUNT(*) FROM ops.pipeline_runs WHERE pipeline_name = 'crew_pulse_data_quality' AND run_status = 'SUCCESS';" \
+            > /tmp/success-count.txt
+
+          PGPASSWORD=postgres psql \
+            -h localhost \
+            -U postgres \
+            -d crewpulse_test \
+            -v ON_ERROR_STOP=1 \
+            -tAc "SELECT COUNT(*) FROM ops.data_quality_results WHERE check_status <> 'PASS';" \
+            > /tmp/failed-check-count.txt
+
+          test "$(cat /tmp/success-count.txt)" -ge 1
+          test "$(cat /tmp/failed-check-count.txt)" -eq 0
+
+          echo "Monitoring run succeeded and all recorded checks passed."

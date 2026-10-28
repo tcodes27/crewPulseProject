@@ -87,3 +87,34 @@ INSERT INTO core.crew_assignment_history
 VALUES
     (1, 1, 1, 'ASSIGNED', CURRENT_TIMESTAMP, 'Test setup'),
     (2, 2, 1, 'ASSIGNED', CURRENT_TIMESTAMP, 'Test setup');
+-- Operations monitoring schema for automated tests
+CREATE SCHEMA ops;
+
+CREATE TABLE ops.pipeline_runs (
+    run_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMPTZ,
+    run_status TEXT NOT NULL DEFAULT 'RUNNING'
+        CHECK (run_status IN ('RUNNING', 'SUCCESS', 'FAILED')),
+    records_read INTEGER NOT NULL DEFAULT 0,
+    records_inserted INTEGER NOT NULL DEFAULT 0,
+    records_rejected INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    CHECK (records_read >= 0),
+    CHECK (records_inserted >= 0),
+    CHECK (records_rejected >= 0)
+);
+
+CREATE TABLE ops.data_quality_results (
+    result_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    run_id BIGINT NOT NULL REFERENCES ops.pipeline_runs(run_id),
+    table_name TEXT NOT NULL,
+    check_name TEXT NOT NULL,
+    failed_records INTEGER NOT NULL DEFAULT 0,
+    check_status TEXT NOT NULL
+        CHECK (check_status IN ('PASS', 'FAIL', 'WARNING')),
+    details TEXT,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (failed_records >= 0)
+);
