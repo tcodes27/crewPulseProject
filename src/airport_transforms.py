@@ -25,13 +25,21 @@ def prepare_airport_records(airports: pd.DataFrame) -> tuple[pd.DataFrame, dict]
             f"Source data is missing columns: {missing_columns}"
         )
 
-    # Keep only valid three-letter IATA codes.
-    valid_code = airports["iata_code"].str.fullmatch(
-        r"[A-Z]{3}", na=False
+    # Separate missing codes from codes with an invalid format.
+    iata_codes = airports["iata_code"].astype("string").str.strip()
+
+    missing_iata_count = int(iata_codes.isna().sum())
+    invalid_format_count = int(
+        (
+            iata_codes.notna()
+            & ~iata_codes.str.fullmatch(r"[A-Z]{3}", na=False)
+        ).sum()
     )
+
+    # Keep only valid three-letter IATA codes.
+    valid_code = iata_codes.str.fullmatch(r"[A-Z]{3}", na=False)
     selected = airports[valid_code].copy()
     invalid_iata_count = records_read - len(selected)
-
     # Count and remove duplicate codes.
     duplicate_count = int(selected["iata_code"].duplicated().sum())
     selected = selected.drop_duplicates(subset=["iata_code"])
@@ -68,6 +76,8 @@ def prepare_airport_records(airports: pd.DataFrame) -> tuple[pd.DataFrame, dict]
 
     metrics = {
         "records_read": records_read,
+        "missing_iata_count": missing_iata_count,
+        "invalid_format_count": invalid_format_count,
         "invalid_iata_count": invalid_iata_count,
         "duplicate_count": duplicate_count,
         "missing_required_count": missing_required_count,

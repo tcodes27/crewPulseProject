@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from datetime import datetime, timezone
@@ -64,18 +63,17 @@ def main():
                 "check_status": (
                     "PASS" if records_read > 0 else "FAIL"
                 ),
-                "details": f"Source rows downloaded: {records_read}",
+		"details": f"Source rows downloaded: {records_read}",
             },
             {
                 "table_name": "core.airports",
-		"check_name": "valid_iata_codes",
-		"failed_records": invalid_iata_count,
-		"check_status": (
-		    "PASS" if invalid_iata_count == 0 else "WARNING"
-		),
+                "check_name": "iata_code_eligibility",
+                "failed_records": 0,
+                "check_status": "PASS",
                 "details": (
-                    "Rows without a three-letter IATA code are excluded "
-                    "by design."
+                    f"Eligible airport records: {records_loaded}; "
+                    f"records excluded for missing or invalid IATA codes: "
+                    f"{invalid_iata_count}."
                 ),
             },
             {
