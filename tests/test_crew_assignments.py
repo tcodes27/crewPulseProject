@@ -58,3 +58,29 @@ def test_no_duplicate_crew_assignments_per_flight():
         )
     finally:
         engine.dispose()
+def test_every_assignment_references_existing_records():
+    """Verify each assignment points to an existing flight and crew member."""
+    assert DATABASE_URL, "DATABASE_URL is missing from the .env file."
+
+    engine = create_engine(DATABASE_URL)
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("""
+                SELECT ca.assignment_id
+                FROM core.crew_assignments AS ca
+                LEFT JOIN core.flights AS f
+                    ON ca.flight_id = f.flight_id
+                LEFT JOIN core.crew_members AS cm
+                    ON ca.crew_id = cm.crew_id
+                WHERE f.flight_id IS NULL
+                   OR cm.crew_id IS NULL;
+            """))
+            invalid_assignments = result.fetchall()
+
+        assert invalid_assignments == [], (
+            f"Assignments with missing flight or crew records: "
+            f"{invalid_assignments}"
+        )
+    finally:
+
+        engine.dispose()
