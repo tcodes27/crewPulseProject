@@ -11,20 +11,23 @@ from sqlalchemy import create_engine, text
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is missing from .env")
-
 AIRPORTS_URL = "https://ourairports.com/data/airports.csv"
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 RAW_FILE = RAW_DIR / "airports.csv"
 PIPELINE_NAME = "airport_reference_ingestion"
 
+def download_airports():
+    """Download the airport source data."""
+    return pd.read_csv(AIRPORTS_URL, low_memory=False)
+
 
 def main():
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(DATABASE_URL)
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is missing from .env")
 
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    engine = create_engine(database_url)
     # Start and persist the monitoring record first.
     with engine.begin() as connection:
         run_id = connection.execute(
@@ -42,12 +45,10 @@ def main():
 
     try:
         print(f"Pipeline run {run_id}: downloading airport data...")
-
-        airports = pd.read_csv(AIRPORTS_URL, low_memory=False)
+        airports = download_airports()
         airports.to_csv(RAW_FILE, index=False)
         records_read = len(airports)
         selected, metrics = prepare_airport_records(airports)
-
         records_read = metrics["records_read"]
         records_loaded = metrics["records_loaded"]
         records_rejected = metrics["records_rejected"]
