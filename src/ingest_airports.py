@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from dotenv import load_dotenv
+from src.airport_transforms import prepare_airport_records
 from sqlalchemy import create_engine, text
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -45,59 +46,15 @@ def main():
         airports = pd.read_csv(AIRPORTS_URL, low_memory=False)
         airports.to_csv(RAW_FILE, index=False)
         records_read = len(airports)
+        selected, metrics = prepare_airport_records(airports)
 
-        required_source_columns = [
-            "iata_code", "name", "municipality", "iso_country"
-        ]
-        missing_columns = [
-            column for column in required_source_columns
-            if column not in airports.columns
-        ]
-        if missing_columns:
-            raise ValueError(
-                f"Source data is missing columns: {missing_columns}"
-            )
+        records_read = metrics["records_read"]
+        records_loaded = metrics["records_loaded"]
+        records_rejected = metrics["records_rejected"]
 
-        # Keep records with a valid three-letter IATA airport code.
-        valid_code = airports["iata_code"].str.fullmatch(
-            r"[A-Z]{3}", na=False
-        )
-        selected = airports[valid_code].copy()
-        records_rejected = records_read - len(selected)
-
-        duplicate_count = int(
-            selected["iata_code"].duplicated().sum()
-        )
-
-        selected = selected[
-            required_source_columns
-        ].rename(
-            columns={
-                "iata_code": "airport_code",
-                "name": "airport_name",
-                "municipality": "city",
-                "iso_country": "country",
-            }
-        )
-
-        selected = selected.drop_duplicates(
-            subset=["airport_code"]
-        )
-
-        # Required fields must be present before loading.
-        missing_required = (
-            selected["airport_code"].isna()
-            | selected["airport_name"].isna()
-            | selected["airport_name"].astype(str).str.strip().eq("")
-        )
-        missing_required_count = int(missing_required.sum())
-        selected = selected[~missing_required].copy()
-
-        selected = selected.astype(object).where(
-            pd.notna(selected), None
-        )
-        records_loaded = len(selected)
-
+        invalid_iata_count = metrics["invalid_iata_count"]
+        duplicate_count = metrics["duplicate_count"]
+        missing_required_count = metrics["missing_required_count"]
         checks = [
             {
                 "table_name": "core.airports",
@@ -110,11 +67,11 @@ def main():
             },
             {
                 "table_name": "core.airports",
-                "check_name": "valid_iata_codes",
-                "failed_records": records_rejected,
-                "check_status": (
-                    "PASS" if records_rejected == 0 else "WARNING"
-                ),
+		"check_name": "valid_iata_codes",
+		"failed_records": invalid_iata_count,
+		"check_status": (
+		    "PASS" if invalid_iata_count == 0 else "WARNING"
+		),
                 "details": (
                     "Rows without a three-letter IATA code are excluded "
                     "by design."
