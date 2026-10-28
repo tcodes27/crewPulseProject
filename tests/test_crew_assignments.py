@@ -84,3 +84,29 @@ def test_every_assignment_references_existing_records():
     finally:
 
         engine.dispose()
+def test_every_assignment_has_one_current_history_record():
+    """Verify each assignment has exactly one open history record."""
+    assert DATABASE_URL, "DATABASE_URL is missing from the .env file."
+
+    engine = create_engine(DATABASE_URL)
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("""
+                SELECT
+                    ca.assignment_id,
+                    COUNT(h.history_id) AS current_record_count
+                FROM core.crew_assignments AS ca
+                LEFT JOIN core.crew_assignment_history AS h
+                    ON ca.assignment_id = h.assignment_id
+                    AND h.effective_to IS NULL
+                GROUP BY ca.assignment_id
+                HAVING COUNT(h.history_id) <> 1;
+            """))
+            invalid_assignments = result.fetchall()
+
+        assert invalid_assignments == [], (
+            "Assignments without exactly one current history record: "
+            f"{invalid_assignments}"
+        )
+    finally:
+        engine.dispose()
