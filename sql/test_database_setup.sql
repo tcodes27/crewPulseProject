@@ -48,9 +48,12 @@ CREATE TABLE core.crew_assignment_history (
     effective_from TIMESTAMPTZ NOT NULL,
     effective_to TIMESTAMPTZ,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recorded_to TIMESTAMPTZ,
     change_reason TEXT,
     CONSTRAINT valid_effective_period
-        CHECK (effective_to IS NULL OR effective_to > effective_from)
+        CHECK (effective_to IS NULL OR effective_to > effective_from),
+    CONSTRAINT valid_recorded_period
+        CHECK (recorded_to IS NULL OR recorded_to > recorded_at)
 );
 -- Sample airports
 INSERT INTO core.airports
