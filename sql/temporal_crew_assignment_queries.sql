@@ -37,9 +37,9 @@ ORDER BY h.assignment_id;
 -- effective_at = business-valid time
 -- known_at     = database-recorded time
 --
--- Limitation: This filters on recorded_at, but without a
--- recorded_to column it cannot reconstruct every later
--- correction to the database's historical knowledge.
+-- Both time dimensions are checked using half-open intervals.
+-- recorded_to allows us to reconstruct earlier versions
+-- of the database's historical knowledge.
 
 WITH parameters AS (
     SELECT
@@ -53,7 +53,8 @@ SELECT
     h.assignment_status,
     h.effective_from,
     h.effective_to,
-    h.recorded_at
+    h.recorded_at,
+    h.recorded_to
 FROM core.crew_assignment_history AS h
 CROSS JOIN parameters AS p
 WHERE h.effective_from <= p.effective_at
@@ -62,8 +63,11 @@ WHERE h.effective_from <= p.effective_at
       OR p.effective_at < h.effective_to
   )
   AND h.recorded_at <= p.known_at
+  AND (
+      h.recorded_to IS NULL
+      OR p.known_at < h.recorded_to
+  )
 ORDER BY h.assignment_id;
-
 
 -- 3. ASSIGNMENT STATUS TIMELINE
 -- Question: How has one assignment changed over time?
