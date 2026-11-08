@@ -16,7 +16,21 @@ RAW_FILE = RAW_DIR / "airports.csv"
 PIPELINE_NAME = "airport_reference_ingestion"
 
 def download_airports():
-    """Download the airport source data."""
+    """Load airport data from the configured remote or local source."""
+    source = os.getenv("AIRPORTS_SOURCE", "remote").strip().lower()
+
+    if source == "local":
+        if not RAW_FILE.is_file():
+            raise FileNotFoundError(
+                f"Local airport source not found: {RAW_FILE}"
+            )
+        return pd.read_csv(RAW_FILE, low_memory=False)
+
+    if source != "remote":
+        raise ValueError(
+            "AIRPORTS_SOURCE must be either 'remote' or 'local'."
+        )
+
     return pd.read_csv(AIRPORTS_URL, low_memory=False)
 
 
@@ -43,9 +57,15 @@ def main():
     records_rejected = 0
 
     try:
-        print(f"Pipeline run {run_id}: downloading airport data...")
+        source = os.getenv("AIRPORTS_SOURCE", "remote").strip().lower()
+        print(
+            f"Pipeline run {run_id}: loading airport data "
+            f"from {source} source..."
+        )
         airports = download_airports()
-        airports.to_csv(RAW_FILE, index=False)
+
+        if source == "remote":
+            airports.to_csv(RAW_FILE, index=False)
         records_read = len(airports)
         selected, metrics = prepare_airport_records(airports)
         records_read = metrics["records_read"]

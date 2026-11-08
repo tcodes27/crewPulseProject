@@ -221,6 +221,11 @@ def run_data_quality_checks():
             f"{passed} passed; {failed} failed."
         )
 
+        if failed > 0:
+            raise RuntimeError(
+                f"{failed} data quality check(s) failed."
+            )
+
     except Exception as error:
         if run_id is not None:
             with engine.begin() as connection:

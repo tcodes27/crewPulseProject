@@ -77,3 +77,34 @@ def test_download_failure_records_failed_pipeline_run(monkeypatch):
     assert failed_updates[0]["run_id"] == 42
     assert failed_updates[0]["error"] == "Simulated airport source failure"
     assert disposed == [True]
+
+
+def test_download_airports_reads_local_source(monkeypatch, tmp_path):
+    """Local mode should read the cached CSV without a network request."""
+    import pandas as pd
+
+    source_file = tmp_path / "airports.csv"
+    expected = pd.DataFrame({
+        "id": [1],
+        "ident": ["TEST"],
+        "name": ["Test Airport"],
+    })
+    expected.to_csv(source_file, index=False)
+
+    monkeypatch.setenv("AIRPORTS_SOURCE", "local")
+    monkeypatch.setattr(ingest_airports, "RAW_FILE", source_file)
+
+    result = ingest_airports.download_airports()
+
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_download_airports_rejects_invalid_source(monkeypatch):
+    """Unsupported source settings should fail clearly."""
+    monkeypatch.setenv("AIRPORTS_SOURCE", "unknown")
+
+    with pytest.raises(
+        ValueError,
+        match="AIRPORTS_SOURCE must be either 'remote' or 'local'",
+    ):
+        ingest_airports.download_airports()
