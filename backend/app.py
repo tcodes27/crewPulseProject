@@ -14,16 +14,28 @@ from sqlalchemy.orm import Session, sessionmaker
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
-
 app = FastAPI(title="CrewPulse Operations API", version="1.0.0")
+
+frontend_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+production_origins = os.getenv("FRONTEND_ORIGINS", "")
+
+frontend_origins.extend(
+    origin.strip().rstrip("/")
+    for origin in production_origins.split(",")
+    if origin.strip()
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=frontend_origins,
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
-
 
 @lru_cache(maxsize=1)
 def get_session_factory() -> sessionmaker[Session]:

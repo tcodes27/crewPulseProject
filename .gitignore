@@ -23,3 +23,6 @@ data/raw/*
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Cloudflare local state
+.wrangler/
