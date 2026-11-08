@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 type Flight = {
   flight_id: number
   flight_number: string
@@ -49,7 +51,7 @@ function App() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/flights')
+      const response = await fetch(`${API_BASE_URL}/api/flights`)
       if (!response.ok) throw new Error('Flight data could not be loaded. Check that the API and database are available.')
       const payload = (await response.json()) as FlightResponse
       setData(payload)
