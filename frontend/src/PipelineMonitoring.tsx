@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API_BASE_URL } from './api'
+import { formatTimestamp } from './formatTimestamp.mjs'
 import { getSafePipelineFailureMessage, UNKNOWN_PIPELINE_FAILURE } from './pipelineErrors.mjs'
 
 type PipelineSummary = {
@@ -35,15 +36,6 @@ type QualityResult = {
   status: 'PASS' | 'WARNING' | 'FAIL' | string
   details: string | null
   checked_at: string
-}
-
-const formatTimestamp = (value: string | null | undefined) => {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short',
-  }).format(date)
 }
 
 const formatDuration = (start: string, finish: string | null) => {
