@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+import { AnalyticsPage, EngineeringPage } from './PortfolioPages'
+import { PipelineMonitoringPage } from './PipelineMonitoring'
+import { API_BASE_URL } from './api'
 
 type Flight = {
   flight_id: number
@@ -42,10 +43,21 @@ function formatDeparture(value: string) {
 }
 
 function App() {
+  const [section, setSection] = useState<'overview' | 'analytics' | 'engineering' | 'pipeline'>('overview')
   const [data, setData] = useState<FlightResponse>({ flights: [], kpis: emptyKpis })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  useEffect(() => {
+    const syncSection = () => {
+      const hash = window.location.hash.slice(1)
+      setSection(hash === 'analytics' || hash === 'engineering' || hash === 'pipeline' ? hash : 'overview')
+    }
+    syncSection()
+    window.addEventListener('hashchange', syncSection)
+    return () => window.removeEventListener('hashchange', syncSection)
+  }, [])
 
   const loadFlights = useCallback(async () => {
     setLoading(true)
@@ -77,12 +89,17 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="#overview" aria-label="CrewPulse home">
+        <a className="brand" href="#overview" aria-label="CrewPulse home" onClick={() => setSection('overview')}>
           <span className="brand-mark">C<span>✦</span></span>
           <span className="brand-name">Crew<span>Pulse</span></span>
         </a>
         <div className="nav-caption">WORKSPACE</div>
-        <a className="nav-link active" href="#overview"><span className="nav-icon">▦</span> Overview</a>
+        <nav className="section-nav" aria-label="Main navigation">
+          <a className={`nav-link ${section === 'overview' ? 'active' : ''}`} href="#overview" aria-current={section === 'overview' ? 'page' : undefined} onClick={() => setSection('overview')}><span className="nav-icon">▦</span><span className="nav-label">Operations Overview</span></a>
+          <a className={`nav-link ${section === 'analytics' ? 'active' : ''}`} href="#analytics" aria-current={section === 'analytics' ? 'page' : undefined} onClick={() => setSection('analytics')}><span className="nav-icon">▥</span><span className="nav-label">Analytics</span></a>
+          <a className={`nav-link ${section === 'engineering' ? 'active' : ''}`} href="#engineering" aria-current={section === 'engineering' ? 'page' : undefined} onClick={() => setSection('engineering')}><span className="nav-icon">⌘</span><span className="nav-label">Engineering</span></a>
+          <a className={`nav-link ${section === 'pipeline' ? 'active' : ''}`} href="#pipeline" aria-current={section === 'pipeline' ? 'page' : undefined} onClick={() => setSection('pipeline')}><span className="nav-icon">◴</span><span className="nav-label">Pipeline Monitoring</span></a>
+        </nav>
         <div className="sidebar-bottom">
           <div className="data-note"><span className="note-icon">i</span><span><b>Synthetic data</b><small>Portfolio demonstration</small></span></div>
           <div className="profile"><span className="avatar">CP</span><span><b>Operations</b><small>Flight control</small></span><span className="profile-dots">···</span></div>
@@ -91,11 +108,11 @@ function App() {
 
       <main className="main-content" id="overview">
         <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="crumb-separator">/</span><b>Operations overview</b></div>
+          <div className="breadcrumb"><span>Workspace</span><span className="crumb-separator">/</span><b>{section === 'overview' ? 'Operations overview' : section === 'analytics' ? 'Analytics' : section === 'engineering' ? 'Engineering' : 'Pipeline monitoring'}</b></div>
           <div className="topbar-right"><span className="live-indicator"><i /> SYSTEM ONLINE</span><span className="topbar-date">Flight operations</span></div>
         </header>
 
-        <section className="page-content">
+        {section === 'overview' ? <section className="page-content">
           <div className="page-heading">
             <div>
               <div className="eyebrow">FLIGHT CONTROL CENTER</div>
@@ -142,7 +159,7 @@ function App() {
             {!loading && !error && data.flights.length > 0 && <div className="table-footer"><span>Showing <b>{data.flights.length}</b> scheduled flights</span><span>Data refreshes on demand</span></div>}
           </section>
           <footer className="page-footer"><span>CREWPULSE OPERATIONS</span><span>Independent portfolio project · Synthetic data for demonstration</span></footer>
-        </section>
+        </section> : <section className="page-content">{section === 'analytics' ? <AnalyticsPage /> : section === 'engineering' ? <EngineeringPage /> : <PipelineMonitoringPage />}<footer className="page-footer"><span>CREWPULSE OPERATIONS</span><span>Independent portfolio project · Synthetic data for demonstration</span></footer></section>}
       </main>
     </div>
   )
