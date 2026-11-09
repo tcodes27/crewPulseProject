@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import OperationalError
 
 from backend.app import (
+    app,
     get_flights,
     get_pipeline_data_quality,
     get_pipeline_runs,
@@ -132,6 +133,17 @@ def test_pipeline_runs_returns_empty_history():
     assert get_pipeline_runs(session=make_readonly_session(FakeResult([]))) == {"runs": []}
 
 
+def test_data_quality_global_history_has_no_run_filter_and_enforces_read_only():
+    row = {"result_id": 4, "run_id": 9, "table_name": "core.airports", "status": "PASS"}
+    session = make_readonly_session(FakeResult([row]))
+
+    assert get_pipeline_data_quality(run_id=None, limit=12, session=session) == {"results": [row]}
+    assert "SET TRANSACTION READ ONLY" in str(session.execute.call_args_list[0].args[0])
+    statement, parameters = session.execute.call_args_list[1].args
+    assert "WHERE" not in str(statement).upper()
+    assert parameters == {"limit": 12}
+
+
 def test_data_quality_filters_by_run_and_limit_and_enforces_read_only():
     row = {"result_id": 4, "run_id": 9, "table_name": "core.airports", "status": "PASS"}
     session = make_readonly_session(FakeResult([row]))
@@ -140,12 +152,25 @@ def test_data_quality_filters_by_run_and_limit_and_enforces_read_only():
     assert "SET TRANSACTION READ ONLY" in str(session.execute.call_args_list[0].args[0])
     statement, parameters = session.execute.call_args_list[1].args
     assert "ORDER BY checked_at DESC" in str(statement)
-    assert ":run_id" in str(statement)
+    assert "WHERE run_id = :run_id" in str(statement)
     assert parameters == {"run_id": 9, "limit": 5}
 
 
 def test_data_quality_returns_empty_history():
-    assert get_pipeline_data_quality(session=make_readonly_session(FakeResult([]))) == {"results": []}
+    assert get_pipeline_data_quality(
+        run_id=None, session=make_readonly_session(FakeResult([]))
+    ) == {"results": []}
+
+
+def test_data_quality_limit_validation_is_bounded_one_to_five_hundred():
+    route = next(
+        route for route in app.routes
+        if getattr(route, "path", None) == "/api/pipeline/data-quality"
+    )
+    limit = next(param for param in route.dependant.query_params if param.name == "limit")
+    constraints = {type(item).__name__: item for item in limit.field_info.metadata}
+    assert constraints["Ge"].ge == 1
+    assert constraints["Le"].le == 500
 
 
 def test_pipeline_endpoints_hide_database_errors():

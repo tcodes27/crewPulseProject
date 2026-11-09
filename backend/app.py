@@ -130,12 +130,22 @@ PIPELINE_RUNS_QUERY = text(
     """
 )
 
-DATA_QUALITY_QUERY = text(
+DATA_QUALITY_HISTORY_QUERY = text(
     """
     SELECT result_id, run_id, table_name, check_name, failed_records,
            check_status AS status, details, checked_at
     FROM ops.data_quality_results
-    WHERE (:run_id IS NULL OR run_id = :run_id)
+    ORDER BY checked_at DESC, result_id DESC
+    LIMIT :limit
+    """
+)
+
+DATA_QUALITY_RUN_QUERY = text(
+    """
+    SELECT result_id, run_id, table_name, check_name, failed_records,
+           check_status AS status, details, checked_at
+    FROM ops.data_quality_results
+    WHERE run_id = :run_id
     ORDER BY checked_at DESC, result_id DESC
     LIMIT :limit
     """
@@ -208,9 +218,15 @@ def get_pipeline_data_quality(
     try:
         with session.begin():
             session.execute(text("SET TRANSACTION READ ONLY"))
-            rows = session.execute(
-                DATA_QUALITY_QUERY, {"run_id": run_id, "limit": limit}
-            ).mappings().all()
+            if run_id is None:
+                rows = session.execute(
+                    DATA_QUALITY_HISTORY_QUERY, {"limit": limit}
+                ).mappings().all()
+            else:
+                rows = session.execute(
+                    DATA_QUALITY_RUN_QUERY,
+                    {"run_id": run_id, "limit": limit},
+                ).mappings().all()
         return {"results": [dict(row) for row in rows]}
     except SQLAlchemyError as exc:
         raise HTTPException(
